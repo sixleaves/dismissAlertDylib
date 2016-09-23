@@ -10,80 +10,75 @@
 // see https://github.com/rpetrich/CaptainHook/
 
 #import <Foundation/Foundation.h>
+//#import <UIKit/UIKit.h>
+#import <CoreLocation/CLLocationManager.h>
 #import "CaptainHook/CaptainHook.h"
-#include <notify.h> // not required; for examples only
+#import <UIKit/UIAlertView.h>
+#import <UIKit/UIImagePickerController.h>
 
-// Objective-C runtime hooking using CaptainHook:
-//   1. declare class using CHDeclareClass()
-//   2. load class using CHLoadClass() or CHLoadLateClass() in CHConstructor
-//   3. hook method using CHOptimizedMethod()
-//   4. register hook using CHHook() in CHConstructor
-//   5. (optionally) call old method using CHSuper()
+//CHDeclareClass(SBWifiManager);
+//CHMethod(1, void, SBWifiManager, setWiFiEnabled, BOOL, arg1) {
+//    CHSuper(1, SBWifiManager, setWiFiEnabled, arg1);
+//    NSLog(@"在搞wifi! attention!");
+//}
+//
+//CHMethod(1, void, SBWifiManager, setPowered, BOOL, arg1) {
+//    CHSuper(1, SBWifiManager, setPowered, arg1);
+//    NSLog(@"在搞wifi setPowerd! attention!");
+//}
+CHDeclareClass(UIViewController);
+CHMethod(3, void, UIViewController, presentViewController,  id, vc, animated, bool, arg2, completion, bool, arg3) {
 
-
-@interface quicktest : NSObject
-
-@end
-
-@implementation quicktest
-
--(id)init
-{
-	if ((self = [super init]))
-	{
-	}
-
-    return self;
+    if (![vc isKindOfClass:objc_getClass("UIImagePickerController")]) {
+        CHSuper(3, UIViewController,presentViewController, vc, animated, arg2, completion, arg3);
+    }else {
+        NSLog(@"成功屏蔽相册功能");
+    }
 }
 
-@end
+CHDeclareClass(UIApplication); // declare class
+CHMethod(1, void, UIApplication,registerUserNotificationSettings, id, arg1) {
+    NSLog(@"notification!");
 
-
-@class ClassToHook;
-
-CHDeclareClass(ClassToHook); // declare class
-
-CHOptimizedMethod(0, self, void, ClassToHook, messageName) // hook method (with no arguments and no return value)
-{
-	// write code here ...
-	
-	CHSuper(0, ClassToHook, messageName); // call old (original) method
 }
 
-CHOptimizedMethod(2, self, BOOL, ClassToHook, arg1, NSString*, value1, arg2, BOOL, value2) // hook method (with 2 arguments and a return value)
-{
-	// write code here ...
-
-	return CHSuper(2, ClassToHook, arg1, value1, arg2, value2); // call old (original) method and return its return value
+CHMethod(0, void, UIApplication, registerForRemoteNotifications) {
+    NSLog(@"notification!");
 }
 
-static void WillEnterForeground(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
-{
-	// not required; for example only
+CHMethod(1, void, UIApplication, registerForRemoteNotificationTypes, id, arg1) {
+    NSLog(@"notification!");
 }
 
-static void ExternallyPostedNotification(CFNotificationCenterRef center, void *observer, CFStringRef name, const void *object, CFDictionaryRef userInfo)
-{
-	// not required; for example only
+
+CHDeclareClass(CLLocationManager);
+CHMethod(0, BOOL, CLLocationManager, locationServicesEnabled) {
+    return YES;
 }
 
-CHConstructor // code block that runs immediately upon load
-{
-	@autoreleasepool
-	{
-		// listen for local notification (not required; for example only)
-		CFNotificationCenterRef center = CFNotificationCenterGetLocalCenter();
-		CFNotificationCenterAddObserver(center, NULL, WillEnterForeground, CFSTR("UIApplicationWillEnterForegroundNotification"), NULL, CFNotificationSuspensionBehaviorCoalesce);
-		
-		// listen for system-side notification (not required; for example only)
-		// this would be posted using: notify_post("com.nd.www.quicktest.eventname");
-		CFNotificationCenterRef darwin = CFNotificationCenterGetDarwinNotifyCenter();
-		CFNotificationCenterAddObserver(darwin, NULL, ExternallyPostedNotification, CFSTR("com.nd.www.quicktest.eventname"), NULL, CFNotificationSuspensionBehaviorCoalesce);
-		
-		// CHLoadClass(ClassToHook); // load class (that is "available now")
-		// CHLoadLateClass(ClassToHook);  // load class (that will be "available later")
-		
-		CHHook(0, ClassToHook, messageName); // register hook
-		CHHook(2, ClassToHook, arg1, arg2); // register hook
-	}
+CHMethod(0, void, CLLocationManager, startUpdatingLocation) {
+    NSLog(@"start updating location!");
 }
+CHMethod(0, void, CLLocationManager, requestWhenInUseAuthorization) {
+    NSLog(@"location hook!");
+}
+CHMethod(0, void, CLLocationManager,requestAlwaysAuthorization) {
+    NSLog(@"location hook!");
+}
+
+__attribute__((constructor)) static void entry()
+{
+    CHLoadLateClass(UIApplication);
+    CHLoadLateClass(CLLocationManager);
+    CHLoadLateClass(UIViewController);
+    CHClassHook(3, UIViewController, presentViewController, animated, completion);
+    CHClassHook(0, UIApplication, registerForRemoteNotifications);
+    CHClassHook(1, UIApplication, registerUserNotificationSettings);
+    CHClassHook(1, UIApplication, registerForRemoteNotificationTypes);
+    CHClassHook(0, CLLocationManager, requestWhenInUseAuthorization);
+    CHClassHook(0, CLLocationManager, requestAlwaysAuthorization);
+    CHClassHook(0, CLLocationManager, startUpdatingLocation);
+    CHClassHook(0, CLLocationManager, locationServicesEnabled);
+    
+}
+
